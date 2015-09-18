@@ -80,7 +80,7 @@
     var Tree = {
         // 标准化树 使样式节点只在叶子节点上
         // span也要去除
-        normalizeTree: function(tree){
+        normalizeTree: function(tree, donotTrimSpan){
             var styleNodes = [];
             var leafNodes = [];
             var scan = function(node, inhrintStyles){
@@ -160,14 +160,14 @@
                 var currParent = frag;
                 while(styleNode = leafNode.inhrintStyles.shift()){
                     // 去除无用atribute属性
-                    //if(styleAttrTagNames.indexOf(styleNode.tagName.toLowerCase()) > - 1 && ! styleNode.attributes.length){
-                    //}else{
+                    if(! donotTrimSpan && styleAttrTagNames.indexOf(styleNode.tagName.toLowerCase()) > - 1 && ! styleNode.attributes.length){
+                    }else{
                         el = styleNode.cloneNode();
 
                         currParent.appendChild(el);
 
                         currParent = el;
-                    //}
+                    }
                 }
 
                 var leafNodeParent = leafNode.node.parentNode;
@@ -182,6 +182,31 @@
         
         // startNode endNode 要求是leafNode textNode
         getSelectedNodes: function(rootNode, startNode, offsetStart, endNode, offsetEnd){
+            if(startNode.nodeType !== startNode.TEXT_NODE){
+                console.warn('start node is not textNode', startNode);
+            }
+
+            if(endNode.nodeType !== endNode.TEXT_NODE){
+                console.warn('end node is not textNode', endNode);
+            }
+
+            /*
+            if(startNode.nodeValue.length - 1 < offsetStart){
+                console.warn('offsetStart > nodeValue.length, startNode will be empty');
+            }
+
+            if(offsetEnd < 1){
+                console.warn('offsetStart > nodeValue.length, startNode will be empty');
+            }
+
+            if(! startNode.nodeValue.length){
+                console.warn('startNode  empty');
+            }
+
+            if(! endNode.nodeValue.length){
+                console.warn('endNode empty');
+            }
+            */
 
             var isLeafNode = function(node){
                 return node.nodeType === node.TEXT_NODE;
@@ -214,7 +239,7 @@
                     }
                 }
 
-                Tree.normalizeTree(p);
+                Tree.normalizeTree(p, 1);
             };
 
             if(startNode === endNode){
@@ -232,22 +257,48 @@
                 nodes.push(startNode);
             }else{
                 var span = replaceTextNodeWithSpan(startNode, offsetStart, startNode.nodeValue.length);
+
+                // 这时有可能 span childNodes是空的
+                // 原因是 比如range.endContainer 是af range.endOffset是2
+                if(span.childNodes.length){
+                }else{
+                    var textNode = startNode.ownerDocument.createTextNode('');
+                    span.appendChild(textNode);
+                }
+
                 nodes.push(span.childNodes[0]);
 
+
+                
+                startNode = span.childNodes[0];
+
+                // 修剪完之后 虽然span没有被删掉 
+                // 但已经是clone的span了，子元素不在它下了
+                // 所以要先取 再normalize
                 normalize(span);
 
-                startNode = span.childNodes[0];
             }
 
             if(offsetEnd === endNode.nodeValue.length){
                 nodes.push(endNode);
             }else{
                 var span = replaceTextNodeWithSpan(endNode, 0, offsetEnd);
-                normalize(span);
+
+                // 这时有可能 span childNodes是空的
+                // 原因是 比如range.startContainer 是af range.startOffset是2
+                if(span.childNodes.length){
+                }else{
+                    var textNode = endNode.ownerDocument.createTextNode('');
+                    span.appendChild(textNode);
+                }
+
 
                 nodes.push(span.childNodes[0]);
 
+
                 endNode = span.childNodes[0];
+
+                normalize(span);
             }
 
             var scan = function(node){
@@ -279,6 +330,28 @@
             };
 
             scan(rootNode);
+
+            // 检查被抽中的开始节点是否为空串
+            // 空串在trim的时候会被修剪掉
+            if(! startNode.nodeValue.length){
+                if(nodes[2]){
+                    startNode = nodes[2];
+                    nodes.splice(2, 1);
+                }else{
+                    startNode = nodes[1];
+                }
+            }
+
+            if(! endNode.nodeValue.length){
+                if(nodes.length > 2){
+                    endNode = nodes[nodes.length - 1];
+                    nodes.splice(nodes.length - 1, 1);
+                }else{
+                    endNode = nodes[0];
+                }
+            }
+
+
             return nodes;
         },
 
@@ -710,6 +783,27 @@
 
             return nodes;
             */
+             var findFirstTextNode = function(node){
+                if(node.nodeType === node.TEXT_NODE && node.nodeValue.length){
+                    breakAll = 1;
+                    return node;
+                }
+
+                for(var i = 0; i < node.childNodes.length; i ++){
+                    var child = node.childNodes[i];
+
+                    var childText = findFirstTextNode(child);
+
+                    if(childText){
+                        return childText;
+                    }else{
+                    }
+                }
+             };
+
+             var findClosetTextNode = function(node){
+             };
+
              if(range){
                 var startContainer = range.startContainer;
                 var endContainer = range.endContainer;
@@ -718,14 +812,14 @@
 
                 if(startContainer.nodeType === startContainer.TEXT_NODE){
                 }else{
-                    startContainer = startContainer.childNodes[startOffset];
+                    startContainer = findFirstTextNode(startContainer.childNodes[startOffset]);
 
                     startOffset = 0;
                 }
 
                 if(endContainer.nodeType === endContainer.TEXT_NODE){
                 }else{
-                    endContainer = endContainer.childNodes[endOffset - 1];
+                    endContainer = findFirstTextNode(endContainer.childNodes[endOffset - 1]);
 
                     endOffset = endContainer.nodeValue.length;
 
