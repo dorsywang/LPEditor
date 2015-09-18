@@ -1,0 +1,110 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+  <style type="text/css">
+ .btn{
+   padding: 3px;
+   border: 1px solid #ccc;
+ }
+  </style>
+</head>
+<body>
+<div id="editor"></div>
+<div id='a1'>
+  <div id='a11'>
+    <div id='a111'>
+      aaa aaa
+    </div>
+    <p id='a112'>
+    dsfasdf
+    </p>
+  </div>
+  <p id='a21'>
+  <div id='a211'>
+    <div id='a2111'>
+      bbbcc
+    </div>
+
+    <p id='a2112'>
+    sdfsadf
+    </p>
+    jsdfas
+  </div>
+  </p>
+</div>
+
+<div id="testScanCopy"></div>
+
+<div id="testScan">
+  <span style="color: red">
+    <div>pred</div>
+  </span>
+  <sup>
+    <div>aaa
+      <sub>
+        <span>
+          bbb
+        </span>
+        sadfsdf
+      </sub>
+    </div>
+
+    <font color='red'>
+      <div>
+        <font color='blue'>
+          blue
+        </font>
+        <span>
+          red
+        </span>
+      </div>
+    </font>
+  </sup>
+  Noraml
+</div>
+
+<h2>
+set
+</h2>
+
+
+<button onclick="myeditor.focus(true);">focus</button>
+<button onclick="myeditor.setContent('<p>aaaaaaaaaa</p><div style=\'color:red;\'>adsfsd</div>');">setContent</button>
+	
+<h3>setStyle</h3>
+
+<h3>setLabelCommand</h3>
+<span class="btn" onclick="myeditor.execLabelCommand('bold');">bold</span>
+<span class="btn" onclick="myeditor.execLabelCommand('subscript');">subscript</span>
+<span class="btn" onclick="myeditor.execLabelCommand('superscript');">superscript</span>
+<span class="btn" onclick="myeditor.execLabelCommand('underline');">underline</span>
+
+<h3>Using NativeCommand</h3>
+
+<h2>
+get
+</h2>
+<h3>getLabelCommand</h3>
+<span class="btn" onclick="alert(myeditor.queryLabelCommandValue('bold'))">bold</span>
+
+
+<script type="text/javascript" src="src/litepage_editor.js"></script>
+<script type="text/javascript">
+var myeditor = new LE.Editor({
+    cssLink: "js/ueditor/themes/iframe.css"
+  });
+
+myeditor.render("#editor");
+myeditor.addListener("contentChange", function(){
+    console.log(myeditor.getContent());
+    });
+
+myeditor.setContent('sadfasdfasdfasdf');
+
+window.myeditor = myeditor;
+
+</script>
+</body>
+</html>
