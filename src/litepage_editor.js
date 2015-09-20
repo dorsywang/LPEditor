@@ -26,6 +26,20 @@
         this.event = new Event();
     };
 
+    var converNodeTag = function(oldNode, newNodeTag){
+        var newNode = document.createElement(newNodeTag);
+
+        for(var i = 0; i < oldNode.attributes.length; i ++){
+            var attr = oldNode.attributes[i];
+
+            var attrValue = oldNode.getAttribute(attr);
+
+            newNode.setAttribute(attr, attrValue);
+        }
+
+        return newNode;
+    };
+
     var Event = function(){
         this.map = {};
     };
@@ -64,15 +78,36 @@
     // 非继承属性又影响子元素 要检查父的
     var checkParentStyle = ['underline'];
 
-    var styleNodeTagNames = ['sub', 'sup', 'u', 'strong'];
+    var styleNodeTagNames = ['sub', 'sup', 'u', 'strong', 'b', 'i','em', 'del'];
     var styleAttrTagNames = ['font', 'span'];
+
+    // 相同的标签 替换为后面的
+    var labelSameMap = {
+        b: 'strong',
+        i: 'em'
+    };
 
     var labelMap = {
         bold: 'strong',
         subscript: 'sub', 
         superscript: 'sup',
-        'underline': 'u'
+        'underline': 'u',
+        'italic': 'em',
+        'strikethrough': 'del'
     };
+
+    var styleMap = {
+        forecolor: ['color'],
+        lineheight: ['line-height'],
+        fontsize: ['font-size'],
+        fontfamily: ['font-family'],
+        justify: ['text-align']
+
+    };
+
+    var blockStyle = ['line-height', 'text-align', 'vertical-align'];
+
+    var inlineStyle = ['color', 'font-family', 'font-size'];
 
     var styleTagNames = styleNodeTagNames.concat(styleAttrTagNames); 
 
@@ -102,7 +137,10 @@
                         // inhrintStyles存在此style 不重复增加
                         var exists = 0;
                         for(var i = 0; i < inhrintStyles.length; i ++){
-                            if(inhrintStyles[i].tagName === node.tagName){
+                            var converedTagName = inhrintStyles[i].tagName.toLowerCase();
+                            converedTagName = labelSameMap[converedTagName] || converedTagName;
+
+                            if(converedTagName === (labelSameMap[node.tagName.toLowerCase()] || node.tagName.toLowerCase())){
                                 exists = 1;
                                 break;
                             }
@@ -163,6 +201,10 @@
                     if(! donotTrimSpan && styleAttrTagNames.indexOf(styleNode.tagName.toLowerCase()) > - 1 && ! styleNode.attributes.length){
                     }else{
                         el = styleNode.cloneNode();
+
+                        if(labelSameMap[el.tagName.toLowerCase()]){
+                            el = converNodeTag(el, labelSameMap[el.tagName.toLowerCase()]);
+                        }
 
                         currParent.appendChild(el);
 
@@ -253,7 +295,7 @@
 
 
             // 这里不必要每次都要创建span
-            if(offsetStart === 0){
+            if(offsetStart === 0 && startNode.parentNode.length === 1){
                 nodes.push(startNode);
             }else{
                 var span = replaceTextNodeWithSpan(startNode, offsetStart, startNode.nodeValue.length);
@@ -279,7 +321,7 @@
 
             }
 
-            if(offsetEnd === endNode.nodeValue.length){
+            if(offsetEnd === endNode.nodeValue.length && endNode.parentNode.childNodes.length === 1){
                 nodes.push(endNode);
             }else{
                 var span = replaceTextNodeWithSpan(endNode, 0, offsetEnd);
@@ -361,7 +403,33 @@
             });
         },
 
+        getComputedStyle: function(node, styleName){
+            var checkNode = function(node){
+                if(! node || ! node.style){
+                    return;
+                }
+
+                if(node.style[styleName]){
+                    return node.style[styleName];
+                }else{
+                    return checkNode(node.parentNode);
+                }
+            };
+
+            return checkNode(node, styleName);
+                
+        },
+
         getNodesStyle: function(selectedNodes, name){
+            var result = [];
+            var _this = this;
+            selectedNodes.map(function(item){
+               var nodeStyle =  window.getComputedStyle(item.parentNode).getPropertyValue(name);
+
+               result.push(nodeStyle);
+            });
+
+            return result;
         },
 
         // 检查元素上面是不是有某个标签
@@ -439,9 +507,44 @@
         },
 
         setBlockElStyle: function(selectedNodes, style, value){
+            selectedNodes.map(function(item){
+                // find block parent
+                var p = item;
+
+                while(p = p.parentNode){
+                    var display = window.getComputedStyle(p).getPropertyValue('display');
+
+                    if(display === "block" || display === "inline-block"){
+                        break;
+                    }
+                }
+
+                p.style[style] = value;
+            });
         },
 
         getBlockElStyle: function(selectedNodes, style){
+            var result = [];
+            selectedNodes.map(function(item){
+                // find block parent
+                var p = item;
+
+                while(p = p.parentNode){
+                    var styles = window.getComputedStyle(p)
+                    var display = styles.getPropertyValue('display');
+
+                    if(display === "block" || display === "inline-block"){
+
+                        result.push(styles.getPropertyValue(style));
+                        break;
+                    }
+                }
+
+
+            });
+
+            return result;
+
         },
 
         getBlockEl: function(selectedNodes){
@@ -579,210 +682,6 @@
 
 
         getRangeNodes: function(range){
-        /*
-            // 搜寻过程
-            // 从common节点开始遍历
-            // 根结点优先的遍历原则
-            // 如果发现一个子节点是startNode
-            // 就开始 准备插入队列
-            // 如果某节点不是endNode，检查其子节点如果不包含结束节点，不需要向下遍历 直接插入，如果包含 遍历子结点 找到最小的单元
-            // <div>
-            //  <div>
-            //      <div>
-            //          aaa aaa
-            //      </div>
-            //      <p>
-            //         dsfasdf
-            //      </p>
-            //  </div>
-            //  <p>
-            //      <div>
-            //          <div>
-            //              bbbcc
-            //          </div>
-            //
-            //          <p>
-            //             sdfsadf
-            //             </p>
-            //             jsdfas
-        //          </div>
-    //          </p>
-    //          </div>
-
-            var replaceRangeWithSpan = function(range){
-                var spanNode = document.createElement('span');
-                range.surroundContents(spanNode);
-
-                range.insertNode(spanNode);
-
-                return spanNode;
-            };
-
-            
-            var startContainer = range.startContainer;
-            var endContainer = range.endContainer;
-
-            var startOffset = range.startOffset;
-            var endOffset = range.endOffset;
-
-            var parentNode = range.commonAncestorContainer;
-
-            // 如果startContainer是元素 那么endOffset代表子元素
-            // 这时候处理成
-            // startContainer是元素  endOffset为-1
-
-            var _startContainer = startContainer;
-            var _endContainer= endContainer;
-            var _startOffset = startOffset;
-            var _endOffset = endOffset;
-
-            // 如果开始是元素 则直接使用开始子节点
-            if(startContainer.nodeType === startContainer.ELEMENT_NODE){
-                _startContainer = startContainer.childNodes[startOffset];
-                _startOffset = -1;
-            }
-
-            if(endContainer.nodeType === endContainer.ELEMENT_NODE){
-                _endContainer= endContainer.childNodes[endOffset - 1];
-                _endOffset = -1;
-            }
-
-            //console.log(startContainer, endContainer, startOffset, endOffset, 'container');
-
-            //console.log(_startContainer, _endContainer, 'p container');
-
-            var startPush = 0;
-            var nodes = [];
-            var breakAll = 0;
-            var startContainerIndex, endContainerIndex;
-            var checkChildNodeContains = function(node){
-                if(breakAll){
-                    return;
-                }
-
-                // 先检查本节点
-                if(node === _startContainer){
-                    startPush = 1;
-
-                    //console.log(node.outHTML || node.data, 'is startContainer, push');
-
-                    // 对本节点进行wrap span处理
-                    nodes.push(node);
-
-                    startContainerIndex = nodes.length - 1;
-
-                    return;
-                }
-
-                if(node === _endContainer){
-                    // 对本节点进行wrap span处理
-                    nodes.push(node);
-                    endContainerIndex = nodes.length - 1;
-
-                    breakAll = 1;
-
-                    //console.log(node.outerHTML || node.data, 'is endContainer, push');
-
-                    return;
-                }
-
-                if(startPush){
-                    if(node.contains(_endContainer)){
-                        //console.log(node.outerHTML || node.data, 'startpush:1, contains');
-
-                        for(var i = 0; i < node.childNodes.length; i ++){
-                            checkChildNodeContains(node.childNodes[i]);
-                        }
-                    }else{
-                        //console.log(node.outerHTML || node.data, 'startpush:1, nocontain, push');
-
-                        nodes.push(node);
-                    }
-                }else{
-                    //console.log(node.outerHTML || node.data, 'startpush 0');
-
-                    for(var i = 0; i < node.childNodes.length; i ++){
-                        checkChildNodeContains(node.childNodes[i]);
-                    }
-                }
-            };
-
-            var insertAfter = function(newNode, oldNode){
-                if(oldNode.parentNode.lastChild === oldNode){
-                    oldNode.parentNode.appendChild(newNode);
-                }else{
-                    oldNode.parentNode.insertBefore(newNode, oldNode.nextSibling);
-                }
-            };
-
-            if(_startContainer === _endContainer){
-                var spanNode = document.createElement('span');
-                range.insertNode(spanNode);
-
-                range.surroundContents(spanNode);
-
-                nodes.push(spanNode); 
-            }else{
-                checkChildNodeContains(parentNode);
-
-
-                // 处理startContainer
-                // 如果压进去的是元素 则不管了
-                if(typeof startContainerIndex !== "undefined"){
-                    if(nodes[startContainerIndex].nodeType === startContainer.ELEMENT_NODE){
-
-                    // 是文本 要包裹span
-                    }else{
-                        // 说明被替换过了
-                        if(_startOffset === -1){
-                            _startOffset = 0;
-                        }
-
-                        var _sc = nodes[startContainerIndex];
-
-                        var span = document.createElement("span");
-
-                        var str = _sc.nodeValue.substr(_startOffset); 
-                        span.innerHTML = str;
-
-                        _sc.nodeValue = _sc.nodeValue.substring(0, _startOffset);
-                        insertAfter(span, _sc);
-
-                        nodes[startContainerIndex] = span;
-                    }
-                }
-
-                // 处理startContainer
-                if(typeof endContainerIndex !== "undefined"){
-                    if(nodes[endContainerIndex].nodeType === endContainer.ELEMENT_NODE){
-                    }else{
-                            var span = document.createElement("span");
-                            var _ec = nodes[endContainerIndex];
-
-                            if(_endOffset === -1){
-                                _endOffset = _ec.nodeValue.length;
-                            }
-
-                            var str = _ec.nodeValue.substring(0, endOffset); 
-                            span.innerHTML = str;
-
-                            _ec.nodeValue = _ec.nodeValue.substr(endOffset);
-                            _ec.parentNode.insertBefore(span, _ec);
-
-                            nodes[endContainerIndex] = span;
-                     }
-                }
-
-
-
-            }
-
-            //console.log(nodes, 'nodes');
-
-            nodes = this.processNode(nodes);
-
-            return nodes;
-            */
              var findFirstTextNode = function(node){
                 if(node.nodeType === node.TEXT_NODE && node.nodeValue.length){
                     breakAll = 1;
@@ -859,51 +758,15 @@
         },
 
         queryCommandValue: function(name){
-            var nodes;
-
-            //this.donotTriggerSelectiongChange = 1;
-
-            if(this.nodesMade){
-                nodes = this.selectedNodes;
-            }else{
-                nodes = this.getRangeNodes(this.range);
-                this.selectedNodes = nodes;
-
-                this.nodesMade = 1;
+            if(labelMap[name]){
+                return this.queryLabelCommandValue(name);
+            }else if(styleMap[name]){
+                return this.queryStyleCommand(styleMap[name][0]);
             }
-
-            var _this = this;
-
-            var styles = this.getStyle(name);
-
-            var styleName = styles.styleName;
-            var styleValue = styles.styleValue;
-
-            var state;
-            nodes.map(function(item, index){
-                if(item.nodeType === item.TEXT_NODE && item.nodeValue === ""){
-                }else{
-                    if(item.childNodes.length){
-                        //state = window.getComputedStyle(item, styleName).getPropertyValue(styleName);
-                        //
-                        state = _this.getComputedStyle(item, styleName);
-                    }
-                }
-            });
-
-            return state;
         },
 
         queryCommandState: function(name){
-            var value = this.queryCommandValue(name);
-
-            if(statusCommandMap[name]){
-                return statusCommandMap[name].indexOf(value) || 0;
-            }else{
-                return 1;
-            }
-
-            
+            return this.queryCommandValue(name);
         },
 
         // 这里保证所有的node被span包裹 且去掉无用的空span
@@ -1148,12 +1011,16 @@
 
 
         execCommand: function(name, value){
-            // 进入编辑状态 这些操作都不出发selectionchange
+            
+            if(labelMap[name]){
+                this.execLabelCommand(name, value);
+            }else if(styleMap[name]){
+                this.execStyleCommand(styleMap[name][0], value);
+            }
+        
+        },
 
-            this.donotTriggerSelectiongChange = 1;
-
-            var range = this.range;
-
+        queryStyleCommand: function(name){
             var nodes;
             if(this.nodesMade){
                 nodes = this.selectedNodes;
@@ -1164,62 +1031,37 @@
                 this.nodesMade = 1;
             }
 
-            var _this = this;
+            if(inlineStyle.indexOf(name) > -1){
+                var r = Tree.getNodesStyle(nodes, name);
+            }else if(blockStyle.indexOf(name) > -1){
+                var r = Tree.getBlockElStyle(nodes, name);
+            }
 
+            this.updateRange(nodes);
 
-            //console.log(fontSize, 'font-size');
+            return r[0];
 
-            var styles = this.getStyle(name, value);
+        },
 
-            var styleName = styles.styleName;
-            var styleValue = styles.styleValue;
+        execStyleCommand: function(name, value){
+            var nodes;
+            //if(this.nodesMade){
+            //    nodes = this.selectedNodes;
+            //}else{
+                nodes = this.getRangeNodes(this.range);
+                this.selectedNodes = nodes;
 
-            /*
-            if(statusCommandMap[name]){
-                var status = ! this.queryCommandState(name) ? 1 : 0;
+                this.nodesMade = 1;
+            //}
 
-                styleValue = statusCommandMap[name][status];
-            }*/
+            if(inlineStyle.indexOf(name) > -1){
+                Tree.setNodesStyle(nodes, name, value);
+            }else if(blockStyle.indexOf(name) > -1){
+                Tree.setBlockElStyle(nodes, name, value);
+            }
 
-            //console.log(nodes, 'nodes');
+            this.updateRange(nodes);
 
-            /*
-            var delArr = [];
-            nodes.map(function(item, index){
-                //console.log(item.outerHTML, 'origin');
-                var node = _this.setStyle(item, styleName, styleValue);
-                //console.log(item.outerHTML, 'processed');
-
-                if(node){
-                    nodes[index] = node;
-                }else{
-                    delArr.push(index);
-                }
-            });
-            */
-            Tree.setNodesStyle(nodes, styleName, styleValue);
-
-            //this.selectedNodes = nodes.del(delArr);
-
-            //console.log(nodes, 'nodesafter');
-
-
-            // trim nodes
-
-            range.collapse();
-
-            range.setStart(nodes[0], 0);
-            range.setEndAfter(nodes[nodes.length - 1]);
-
-            var selection = this.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-
-            //this.body.focus();
-
-            this.focus();
-
-            // getChildNodes
 
         },
 
@@ -1233,14 +1075,29 @@
                 _this.donotTriggerSelectiongChange = 0;
             });
 
-            this.document.addEventListener("selectionchange", function(e){
-                //这里要考率 有些情况是不是触发selectionchange
-                //只有用户真正在selectionchange的时候才出发
-                // check与之对象看有没有change
+            var mouseupHandler = function(){
+                _this.document.removeEventListener('mouseup', mouseupHandler);
+                window.removeEventListener("mouseup", mouseupHandler);
+
                 if(! _this.donotTriggerSelectiongChange){
                     _this.event.trigger("selectionchange", {});
                 }
+            };
+
+            this.document.addEventListener("mousedown", function(e){
+                _this.document.removeEventListener("mouseup", mouseupHandler);
+                _this.document.addEventListener("mouseup", mouseupHandler);
+
+                window.removeEventListener("mouseup", mouseupHandler);
+                window.addEventListener("mouseup", mouseupHandler);
             });
+
+            /*
+            this.document.addEventListener("selectstart", function(e){
+                console.log("se");
+            });
+            */
+
         },
 
         setContent: function(html){

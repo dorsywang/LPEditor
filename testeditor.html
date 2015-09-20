@@ -74,18 +74,31 @@ set
 <button onclick="myeditor.setContent('<p>aaaaaaaaaa</p><div style=\'color:red;\'>adsfsd</div>');">setContent</button>
 	
 <h3>setStyle</h3>
+<span class="btn" onclick="myeditor.execStyleCommand('color', 'red');">set red</span>
+<span class="btn" onclick="myeditor.execStyleCommand('color', 'blue');">set blue</span>
+<span class="btn" onclick="myeditor.execStyleCommand('line-height', '20px');">line-height 20px</span>
+<span class="btn" onclick="myeditor.execStyleCommand('line-height', '25px');">line-height 25px</span>
+<span class="btn" onclick="myeditor.execStyleCommand('text-align', 'center');">text-align center</span>
+<span class="btn" onclick="myeditor.execStyleCommand('text-align', 'left');">text-align left</span>
+<span class="btn" onclick="myeditor.execStyleCommand('text-align', 'right');">text-align right</span>
 
 <h3>setLabelCommand</h3>
 <span class="btn" onclick="myeditor.execLabelCommand('bold');">bold</span>
 <span class="btn" onclick="myeditor.execLabelCommand('subscript');">subscript</span>
 <span class="btn" onclick="myeditor.execLabelCommand('superscript');">superscript</span>
 <span class="btn" onclick="myeditor.execLabelCommand('underline');">underline</span>
+<span class="btn" onclick="myeditor.execLabelCommand('italic');">italic</span>
+<span class="btn" onclick="myeditor.execLabelCommand('strikethrough');">strikethrough</span>
 
 <h3>Using NativeCommand</h3>
 
 <h2>
 get
 </h2>
+<h3>getStyleCommand</h3>
+<span class="btn" onclick="alert(myeditor.queryStyleCommand('color'))">color</span>
+<span class="btn" onclick="alert(myeditor.queryStyleCommand('line-height'))">line-height</span>
+<span class="btn" onclick="alert(myeditor.queryStyleCommand('text-align'))">text-align</span>
 <h3>getLabelCommand</h3>
 <span class="btn" onclick="alert(myeditor.queryLabelCommandValue('bold'))">bold</span>
 
