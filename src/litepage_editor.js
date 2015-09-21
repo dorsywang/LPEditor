@@ -21,6 +21,7 @@
     var editor = function(opt){
         if(opt){
             this.cssLink = opt.cssLink;
+            this.filterStyle = opt.filterStyle;
         }
 
         this.event = new Event();
@@ -32,9 +33,9 @@
         for(var i = 0; i < oldNode.attributes.length; i ++){
             var attr = oldNode.attributes[i];
 
-            var attrValue = oldNode.getAttribute(attr);
+            var attrValue = oldNode.getAttribute(attr.name);
 
-            newNode.setAttribute(attr, attrValue);
+            newNode.setAttribute(attr.name, attrValue);
         }
 
         return newNode;
@@ -133,6 +134,8 @@
                 }else{
                     // 如果是style节点
                     // 标记这是要删除的style节点，
+                    // 这里的span 或着stong不能直接重复不增加
+                    // 可能stong上会有样式 不重复增加会导致直接删除 样式也没了
                     if(styleTagNames.indexOf(node.tagName.toLowerCase()) > -1){
                         // inhrintStyles存在此style 不重复增加
                         var exists = 0;
@@ -146,7 +149,7 @@
                             }
                         }
 
-                        if(! exists){
+                        if(1 || ! exists){
                             inhrintStyles = inhrintStyles.concat(node);
                         }
 
@@ -162,13 +165,14 @@
 
             scan(tree, []);
 
-            console.log(styleNodes);
+            //console.log(styleNodes);
             for(var i = 0; i < leafNodes.length; i ++){
                 var leafNode = leafNodes[i];
-                console.log(leafNode.inhrintStyles, leafNode.node.nodeValue || leafNode.node.outerHTML);
+                //console.log(leafNode.inhrintStyles, leafNode.node.nodeValue || leafNode.node.outerHTML);
             }
 
             // 删除样式节点
+            // 如果样式节点上带有style coverTo一个span节点
             for(var i = 0; i < styleNodes.length; i ++){
                 var styleNode = styleNodes[i];
 
@@ -181,6 +185,19 @@
                 }
 
                 styleNode.parentNode.replaceChild(fragment, styleNode);
+                /*
+                if(styleNode.style.length){
+                    var spanEl = converNodeTag(styleNode, 'span');
+
+                    spanEl.appendChild(fragment);
+
+                    styleNode.parentNode.replaceChild(spanEl, styleNode);
+
+                    console.log("styleNode replace span", styleNode.outerHTML);
+
+                }else{
+                }
+                */
             }
 
             // 对叶子结点进行样式插入
@@ -221,9 +238,11 @@
                 leafNodeParent.replaceChild(frag, tempNode);
             }
         },
-        
-        // startNode endNode 要求是leafNode textNode
+
+       
+        // startNode endNode 不要求是leafNode textNode
         getSelectedNodes: function(rootNode, startNode, offsetStart, endNode, offsetEnd){
+        /*
             if(startNode.nodeType !== startNode.TEXT_NODE){
                 console.warn('start node is not textNode', startNode);
             }
@@ -231,24 +250,15 @@
             if(endNode.nodeType !== endNode.TEXT_NODE){
                 console.warn('end node is not textNode', endNode);
             }
-
-            /*
-            if(startNode.nodeValue.length - 1 < offsetStart){
-                console.warn('offsetStart > nodeValue.length, startNode will be empty');
-            }
-
-            if(offsetEnd < 1){
-                console.warn('offsetStart > nodeValue.length, startNode will be empty');
-            }
-
-            if(! startNode.nodeValue.length){
-                console.warn('startNode  empty');
-            }
-
-            if(! endNode.nodeValue.length){
-                console.warn('endNode empty');
-            }
             */
+            // 如果startNode是textNode且是-1 offset要重置
+            if(startNode.nodeType === startNode.TEXT_NODE && offsetStart < 0){
+                offsetStart = 0;
+            }
+
+            if(endNode.nodeType === endNode.TEXT_NODE && offsetEnd < 0){
+                offsetEnd = endNode.nodeValue.length;
+            }
 
             var isLeafNode = function(node){
                 return node.nodeType === node.TEXT_NODE;
@@ -284,6 +294,8 @@
                 Tree.normalizeTree(p, 1);
             };
 
+
+            /*
             if(startNode === endNode){
                 var span = replaceTextNodeWithSpan(startNode, offsetStart, offsetEnd);
                 nodes.push(span.childNodes[0]);
@@ -292,8 +304,10 @@
 
                 return nodes;
             }
+            */
 
 
+/*
             // 这里不必要每次都要创建span
             if(offsetStart === 0 && startNode.parentNode.length === 1){
                 nodes.push(startNode);
@@ -342,30 +356,38 @@
 
                 normalize(span);
             }
+            */
 
             var scan = function(node){
                 if(breakAll){
                     return;
                 }
 
+                if(node === startNode){
+                    //console.log('is start node, push', node.outerHTML || node.nodeValue);
+
+                    startPush = 1;
+                }
+
                 if(isLeafNode(node)){
-                    if(node === startNode){
-                        startPush = 1;
+                    if(startPush){
+                        if(node.nodeValue === ""){
+                        }else{
+                            //console.log('is text node, push', node.outerHTML || node.nodeValue);
 
-                    }else if(node === endNode){
-                        breakAll = 1;
-
-                    }else{
-                        if(startPush){
-                            if(node.nodeValue === ""){
-                            }else{
-                                nodes.push(node);
-                            }
+                            nodes.push(node);
                         }
                     }
                 }else{
                     for(var i = 0; i < node.childNodes.length; i ++){
                         scan(node.childNodes[i]);
+
+                        if(node.childNodes[i] === endNode){
+                            breakAll = 1;
+
+                            //console.log('is end node, break All', node.outerHTML || node.nodeValue);
+                            return;
+                        }
                     }
                         
                 }
@@ -373,26 +395,51 @@
 
             scan(rootNode);
 
-            // 检查被抽中的开始节点是否为空串
-            // 空串在trim的时候会被修剪掉
-            if(! startNode.nodeValue.length){
-                if(nodes[2]){
-                    startNode = nodes[2];
-                    nodes.splice(2, 1);
+            // 如果rootNode为空
+            if(! nodes.length){
+                console.log('select none textNodes');
+                return [];
+
+            // 只选中了一个textNodes
+            }else{
+                var startTextNode = nodes[0];
+
+                var endTextNode = nodes[nodes.length - 1];
+
+                // 这个表示是element全部被选中
+                // 如果选中的textNode和开始的text不同 说明全部包含在selection里面
+                if(offsetStart < 0 || startTextNode !== startNode){
                 }else{
-                    startNode = nodes[1];
+                    if(offsetStart === 0 && startTextNode.parentNode.childNodes.length === 1 && styleNodeTagNames.indexOf(startTextNode.parentNode.tagName) < 0){
+                    }else{
+                        if(endNode === startNode){
+                            var span = replaceTextNodeWithSpan(startTextNode, offsetStart, offsetEnd);
+                        }else{
+                            var span = replaceTextNodeWithSpan(startTextNode, offsetStart, startTextNode.nodeValue.length);
+                        }
+
+                        startTextNode = span.childNodes[0];
+
+                        nodes[0] = startTextNode;
+
+                        normalize(span);
+                    }
+                }
+
+                if(offsetEnd < 0 || endTextNode !== endNode || startNode === endNode){
+                }else{
+                    if(offsetEnd === endTextNode.nodeValue.length && endTextNode.parentNode.childNodes.length === 1 &&  styleNodeTagNames.indexOf(endTextNode.parentNode.tagName) < 0){
+                    }else{
+                        var span = replaceTextNodeWithSpan(endTextNode, 0, offsetEnd);
+
+                        endTextNode = span.childNodes[0];
+
+                        nodes[nodes.length - 1] = endTextNode;
+
+                        normalize(span);
+                    }
                 }
             }
-
-            if(! endNode.nodeValue.length){
-                if(nodes.length > 2){
-                    endNode = nodes[nodes.length - 1];
-                    nodes.splice(nodes.length - 1, 1);
-                }else{
-                    endNode = nodes[0];
-                }
-            }
-
 
             return nodes;
         },
@@ -500,7 +547,17 @@
                         frag.appendChild(child);
                     }
 
-                    p.parentNode.replaceChild(frag, p);
+                    if(p.style.length){
+                       var spanEl = converNodeTag(p, 'span');
+
+                        spanEl.appendChild(frag);
+
+                        p.parentNode.replaceChild(spanEl, p);
+
+                    }else{
+
+                        p.parentNode.replaceChild(frag, p);
+                    }
                 }else{
                 }
             });
@@ -552,69 +609,16 @@
     };
 
 
-    // test
-    //document.getElementById("testScanCopy").innerHTML = document.getElementById("testScan").innerHTML;
-    //Tree.normalizeTree(document.getElementById("testScan"));
-
-    //window.Tree = Tree;
-
-    // test getSelectNodes
-    /*
-    document.addEventListener("mouseup", function(e){
-        var range = window.getSelection();
-
-        if(range.rangeCount){
-            range = range.getRangeAt(0);
-
-            var startContainer = range.startContainer;
-            var endContainer = range.endContainer;
-            var startOffset = range.startOffset;
-            var endOffset = range.endOffset;
-
-            if(startContainer.nodeType === startContainer.TEXT_NODE){
-            }else{
-                startContainer = startContainer[startOffset].childNodes[0];
-
-                startOffset = 0;
-            }
-
-            if(endContainer.nodeType === endContainer.TEXT_NODE){
-            }else{
-                endContainer = endContainer[endOffset].childNodes[0];
-
-                endOffset = endContainer.nodeValue.length;
-            }
-
-            //Tree.normalizeTree(range.commonAncestorContainer);
-            var nodes = Tree.getSelectedNodes(range.commonAncestorContainer, startContainer, startOffset, endContainer, endOffset);
-
-            Tree.setNodesStyle(nodes, 'font-size', (~~ (Math.random() * 10 + 10)) + 'px');
-
-            console.log(nodes);
-            nodes.map(function(item){
-                console.log(item.tagName || 'text', 'selectedNode');
-                console.log(item.nodeValue || item.outerHTML, 'selectedNode');
-            });
-        }
-    });
-    */
-
     editor.prototype = {
-        updateRange: function(nodes){
+        updateRange: function(nodes, focus){
             var startNode;
             var endNode;
             var range = this.range;
 
             range.collapse();
 
-            if(nodes.length === 1){
-                startNode = nodes[0];
-                endNode = nodes[0];
-            }else if(nodes.length > 1){
-                startNode = nodes[0];
-                endNode = nodes[1];
-            }
-
+            startNode = nodes[0];
+            endNode = nodes[nodes.length - 1];
 
             range.setStart(startNode, 0);
             range.setEndAfter(endNode);
@@ -682,26 +686,56 @@
 
 
         getRangeNodes: function(range){
-             var findFirstTextNode = function(node){
+             /*
+             var findTextNodes = function(node, pos){
                 if(node.nodeType === node.TEXT_NODE && node.nodeValue.length){
                     breakAll = 1;
                     return node;
                 }
 
-                for(var i = 0; i < node.childNodes.length; i ++){
-                    var child = node.childNodes[i];
+                if(pos === 'first'){
+                    for(var i = 0; i < node.childNodes.length; i ++){
+                        var child = node.childNodes[i];
 
-                    var childText = findFirstTextNode(child);
+                        var childText = findTextNodes(child, pos);
 
-                    if(childText){
-                        return childText;
+                        if(childText){
+                            return childText;
+                        }else{
+                        }
+                    }
+                }else{
+                    for(var i = node.childNodes.length - 1; i > -1; i --){
+                        var child = node.childNodes[i];
+
+                        var childText = findTextNodes(child, pos);
+
+                        if(childText){
+                            return childText;
+                        }else{
+                        }
+                    }
+                }
+             };
+
+             var findExtendTextNodes = function(node, pos){
+                    
+                var textNode = findTextNodes(node);
+                if(textNode){
+                }else{
+                    var nextNode;
+                    var sibling = node.sibling;
+                    if(sibling){
+                        nextNode = sibling;
                     }else{
+                        nextNode = node.parentNode.sibling;
                     }
                 }
              };
 
              var findClosetTextNode = function(node){
              };
+             */
 
              if(range){
                 var startContainer = range.startContainer;
@@ -711,31 +745,22 @@
 
                 if(startContainer.nodeType === startContainer.TEXT_NODE){
                 }else{
-                    startContainer = findFirstTextNode(startContainer.childNodes[startOffset]);
+                    startContainer = startContainer.childNodes[startOffset];
 
-                    startOffset = 0;
+                    startOffset = -1;
                 }
 
                 if(endContainer.nodeType === endContainer.TEXT_NODE){
                 }else{
-                    endContainer = findFirstTextNode(endContainer.childNodes[endOffset - 1]);
+                    endContainer = endContainer.childNodes[endOffset - 1];
 
-                    endOffset = endContainer.nodeValue.length;
+                    endOffset = -1;
 
                 }
 
                 Tree.normalizeTree(range.commonAncestorContainer);
                 var nodes = Tree.getSelectedNodes(range.commonAncestorContainer, startContainer, startOffset, endContainer, endOffset);
 
-                /*
-                Tree.setNodesStyle(nodes, 'font-size', (~~ (Math.random() * 10 + 10)) + 'px');
-
-                console.log(nodes);
-                nodes.map(function(item){
-                    console.log(item.tagName || 'text', 'selectedNode');
-                    console.log(item.nodeValue || item.outerHTML, 'selectedNode');
-                });
-                */
                 return nodes;
             }
         },
@@ -758,10 +783,13 @@
         },
 
         queryCommandValue: function(name){
-            if(labelMap[name]){
-                return this.queryLabelCommandValue(name);
-            }else if(styleMap[name]){
-                return this.queryStyleCommand(styleMap[name][0]);
+            if(this.range.collapsed){
+            }else{
+                if(labelMap[name]){
+                    return this.queryLabelCommandValue(name);
+                }else if(styleMap[name]){
+                    return this.queryStyleCommand(styleMap[name][0]);
+                }
             }
         },
 
@@ -930,7 +958,7 @@
             };
         },
 
-        execLabelCommand: function(label){
+        execLabelCommand: function(label, value){
             if(labelMap[label]){
                 label = labelMap[label];
             }
@@ -1011,12 +1039,17 @@
 
 
         execCommand: function(name, value){
-            
             if(labelMap[name]){
                 this.execLabelCommand(name, value);
             }else if(styleMap[name]){
                 this.execStyleCommand(styleMap[name][0], value);
+            }else if(name === "selectall"){
+                this.selectAll();
+
+                return;
             }
+
+            this.event.trigger("contentChange");
         
         },
 
@@ -1061,14 +1094,17 @@
             }
 
             this.updateRange(nodes);
-
-
         },
 
         bindEvent: function(){
             var _this = this;
             this.body.addEventListener("input", function(e){
                 _this.event.trigger("contentChange", {});
+            });
+
+            this.document.addEventListener("contextmenu", function(e){
+                e.preventDefault();
+                return false;
             });
 
             this.body.addEventListener("mousedown", function(e){
@@ -1092,16 +1128,71 @@
                 window.addEventListener("mouseup", mouseupHandler);
             });
 
-            /*
-            this.document.addEventListener("selectstart", function(e){
-                console.log("se");
+            var selectAllKeyDownHandler = function(){
+                _this.document.removeEventListener("keyup", selectAllKeyDownHandler);
+                document.removeEventListener("keyup", selectAllKeyDownHandler);
+
+                _this.event.trigger('selectionchange');
+            };
+
+            this.document.addEventListener("keydown", function(e){
+                var keyCode = e.keyCode;
+
+                if(keyCode === 65 && e.ctrlKey){
+                    _this.document.addEventListener("keyup", selectAllKeyDownHandler);
+                    document.addEventListener("keyup", selectAllKeyDownHandler);
+                }
             });
-            */
+
+            this.document.addEventListener("paste", function(e){
+                 var clipData = e.clipboardData;
+
+                if(! clipData.items || ! clipData.items.length){
+                    return;
+                }
+
+                if(! _this.filterStyle){
+                    return;
+                }
+
+
+                var html = clipData.getData('text/html');
+
+                if(html){
+                    _this.insertHtml(_this._filterHtml(html));
+
+                    e.preventDefault();
+                }
+/*
+
+                var result;
+                if(clipData.getData("text/litepage")){
+                    if(pastedData && pastedData.type === "pageData"){
+                        pastePage();
+                    }else{
+                        pasteObject();
+                    }
+                }else{
+                    var item = clipData.items[0];
+                    */
+            });
 
         },
 
         setContent: function(html){
             this.body.innerHTML = html;
+
+            if(this.body.childNodes[0]){
+                if(this.body.childNodes[0].getAttribute('data-name') === 'body'){
+                    var style = this.body.childNodes[0].getAttribute("style");
+
+                    this.body.innerHTML = this.body.childNodes[0].innerHTML + "<p><br /></p>";
+
+                    this.body.setAttribute("style", style);
+                }else{
+                    this.body.innerHTML += "<p><br /></p>";
+                }
+            }
         },
 
         getSelection: function(){
@@ -1163,15 +1254,87 @@
             this.body.focus();
         },
 
+        selectAll: function(focus){
+            if(this.range){
+                this.range.collapse();
+            }else{
+                this.range = this.getRange();
+            }
+
+            this.range.selectNode(this.body);
+
+            this.nodesMade = 0;
+
+            if(focus){
+                this.focus();
+            }
+        },
+
+        _filterHtml: function(html){
+            var _this = this;
+          if(html){
+              var div = document.createElement('div');
+              div.innerHTML = html;
+
+                var removeChildNodes = [];
+
+                var scan = function(node){
+                    for(var i = 0; i < node.childNodes.length; i ++){
+                        var child = node.childNodes[i];
+
+                        if(child.nodeType === child.COMMENT_NODE){
+                            removeChildNodes.push(child);
+
+                            continue;
+                        }
+
+                        for(var j = 0; j < _this.filterStyle.length; j ++){
+                            var styleName = _this.filterStyle[j];
+
+                            if(child.style){
+                                child.style[styleName] = '';
+                            }
+                        }
+
+                        scan(child);
+                    }
+                };
+
+                scan(div);
+
+                var r;
+                while(r = removeChildNodes.shift()){
+                    r.parentNode.removeChild(r);
+                }
+
+                return div.innerHTML;
+            }else{
+                return '';
+            }
+        },
+
         getContent: function(){
             var html = this.body.innerHTML;
 
-            return html;
+            var content;
+            if(this.body.style.length){
+                var style = this.body.getAttribute('style');
+
+                content = '<div data-name="body" style="' + style + '">' + html + '</div>';
+            }else{
+                content = '<div data-name="body">' + html + '</div>';
+            }
+
+            return content;
         },
 
         addListener: function(eventName, func){
             this.event.addEventListener(eventName, func);
+        },
+        insertHtml: function(html){
+            this.document.execCommand('insertHtml', false, html);
         }
+        
     };
 
     var E = {

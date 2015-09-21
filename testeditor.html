@@ -72,6 +72,8 @@ set
 
 <button onclick="myeditor.focus(true);">focus</button>
 <button onclick="myeditor.setContent('<p>aaaaaaaaaa</p><div style=\'color:red;\'>adsfsd</div>');">setContent</button>
+<button onclick="myeditor.selectAll();">selectAll</button>
+<button onclick="myeditor.selectAll(true);">selectAll & focus</button>
 	
 <h3>setStyle</h3>
 <span class="btn" onclick="myeditor.execStyleCommand('color', 'red');">set red</span>
@@ -106,13 +108,14 @@ get
 <script type="text/javascript" src="src/litepage_editor.js"></script>
 <script type="text/javascript">
 var myeditor = new LE.Editor({
-    cssLink: "js/ueditor/themes/iframe.css"
+    cssLink: "js/ueditor/themes/iframe.css",
+    filterStyle: ['background-color']
   });
 
 myeditor.render("#editor");
 myeditor.addListener("contentChange", function(){
-    console.log(myeditor.getContent());
-    });
+   // console.log(myeditor.getContent());
+});
 
 myeditor.setContent('sadfasdfasdfasdf');
 
