@@ -1313,6 +1313,12 @@
             }
         },
 
+        optmizeContent: function(html){
+            // remove空的span节点
+           var scan = function(node){
+           };
+        },
+
         getContent: function(){
             var html = this.body.innerHTML;
 
@@ -1324,6 +1330,8 @@
             }else{
                 content = '<div data-name="body">' + html + '</div>';
             }
+
+            // 这里优化content
 
             return content;
         },
