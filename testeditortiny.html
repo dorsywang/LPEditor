@@ -1,0 +1,112 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+  <style type="text/css">
+ .btn{
+   padding: 3px;
+   border: 1px solid #ccc;
+ }
+  </style>
+</head>
+<body>
+<div id="editor"></div>
+<div id="mytoolbar"></div>
+<div id='a1'>
+  <div id='a11'>
+    <div id='a111'>
+      aaa aaa
+    </div>
+    <p id='a112'>
+    dsfasdf
+    </p>
+  </div>
+  <p id='a21'>
+  <div id='a211'>
+    <div id='a2111'>
+      bbbcc
+    </div>
+
+    <p id='a2112'>
+    sdfsadf
+    </p>
+    jsdfas
+  </div>
+  </p>
+</div>
+
+<div id="testScanCopy"></div>
+
+<div id="testScan">
+  <span style="color: red">
+    <div>pred</div>
+  </span>
+  <sup>
+    <div>aaa
+      <sub>
+        <span>
+          bbb
+        </span>
+        sadfsdf
+      </sub>
+    </div>
+
+    <font color='red'>
+      <div>
+        <font color='blue'>
+          blue
+        </font>
+        <span>
+          red
+        </span>
+      </div>
+    </font>
+  </sup>
+  Noraml
+</div>
+
+<h2>
+set
+</h2>
+
+
+<button onclick="myeditor.focus(true);">focus</button>
+<button onclick="myeditor.setContent('<p>aaaaaaaaaa</p><div style=\'color:red;\'>adsfsd</div>');">setContent</button>
+<button onclick="myeditor.selectAll();">selectAll</button>
+<button onclick="myeditor.selectAll(true);">selectAll & focus</button>
+	
+<h3>setStyle</h3>
+<span class="btn" onclick="myeditor.execStyleCommand('color', 'red');">set red</span>
+<span class="btn" onclick="myeditor.execStyleCommand('color', 'blue');">set blue</span>
+<span class="btn" onclick="myeditor.execStyleCommand('line-height', '20px');">line-height 20px</span>
+<span class="btn" onclick="myeditor.execStyleCommand('line-height', '25px');">line-height 25px</span>
+<span class="btn" onclick="myeditor.execStyleCommand('text-align', 'center');">text-align center</span>
+<span class="btn" onclick="myeditor.execStyleCommand('text-align', 'left');">text-align left</span>
+<span class="btn" onclick="myeditor.execStyleCommand('text-align', 'right');">text-align right</span>
+
+<h3>setLabelCommand</h3>
+<span class="btn" onclick="myeditor.execLabelCommand('bold');">bold</span>
+<span class="btn" onclick="myeditor.execLabelCommand('subscript');">subscript</span>
+<span class="btn" onclick="myeditor.execLabelCommand('superscript');">superscript</span>
+<span class="btn" onclick="myeditor.execLabelCommand('underline');">underline</span>
+<span class="btn" onclick="myeditor.execLabelCommand('italic');">italic</span>
+<span class="btn" onclick="myeditor.execLabelCommand('strikethrough');">strikethrough</span>
+
+<h3>Using NativeCommand</h3>
+
+<h2>
+get
+</h2>
+<h3>getStyleCommand</h3>
+<span class="btn" onclick="alert(myeditor.queryStyleCommand('color'))">color</span>
+<span class="btn" onclick="alert(myeditor.queryStyleCommand('line-height'))">line-height</span>
+<span class="btn" onclick="alert(myeditor.queryStyleCommand('text-align'))">text-align</span>
+<h3>getLabelCommand</h3>
+<span class="btn" onclick="alert(myeditor.queryLabelCommandValue('bold'))">bold</span>
+
+
+<script type="text/javascript" src="tinymce/js/tinymce/tinymce.dev.js"></script>
+<script type="text/javascript" src="test.js"></script>
+</body>
+</html>

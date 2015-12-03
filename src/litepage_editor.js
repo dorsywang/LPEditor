@@ -106,11 +106,15 @@
 
     };
 
+    var recieveStyle = ['color', 'line-height', 'font-size', 'font-family', 'text-align'];
+    var recieveAttr = ['style'];
+
     var blockStyle = ['line-height', 'text-align', 'vertical-align'];
 
     var inlineStyle = ['color', 'font-family', 'font-size'];
 
     var styleTagNames = styleNodeTagNames.concat(styleAttrTagNames); 
+
 
     // 树操作对象
     var Tree = {
@@ -241,7 +245,7 @@
 
        
         // startNode endNode 不要求是leafNode textNode
-        getSelectedNodes: function(rootNode, startNode, offsetStart, endNode, offsetEnd){
+        getSelectedNodes: function(rootNode, startNode, offsetStart, endNode, offsetEnd, range){
         /*
             if(startNode.nodeType !== startNode.TEXT_NODE){
                 console.warn('start node is not textNode', startNode);
@@ -395,6 +399,16 @@
 
             scan(rootNode);
 
+            var createVitualTextNode = function(text, parentNode){
+                var tNode = document.createTextNode(text);
+
+                parentNode.appendChild(tNode);
+
+                return tNode;
+            };
+
+
+
             // 如果rootNode为空
             if(! nodes.length){
                 console.log('select none textNodes');
@@ -402,9 +416,18 @@
 
             // 只选中了一个textNodes
             }else{
+
                 var startTextNode = nodes[0];
 
                 var endTextNode = nodes[nodes.length - 1];
+
+                if(range.collapsed){
+                    var span = replaceTextNodeWithSpan(startTextNode, offsetStart, offsetEnd);
+
+                    nodes[0] = span.childNodes[0] || createVitualTextNode('', span);
+
+                    return nodes;
+                }
 
                 // 这个表示是element全部被选中
                 // 如果选中的textNode和开始的text不同 说明全部包含在selection里面
@@ -611,25 +634,27 @@
 
     editor.prototype = {
         updateRange: function(nodes, focus){
-            var startNode;
-            var endNode;
-            var range = this.range;
+            if(nodes.length){
+                var startNode;
+                var endNode;
+                var range = this.range;
 
-            range.collapse();
+                range.collapse();
 
-            startNode = nodes[0];
-            endNode = nodes[nodes.length - 1];
+                startNode = nodes[0];
+                endNode = nodes[nodes.length - 1];
 
-            range.setStart(startNode, 0);
-            range.setEndAfter(endNode);
+                range.setStart(startNode, 0);
+                range.setEndAfter(endNode);
 
-            
-            var selection = this.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
+                
+                var selection = this.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
 
 
-            this.focus();
+                this.focus();
+            }
 
 
         },
@@ -745,7 +770,17 @@
 
                 if(startContainer.nodeType === startContainer.TEXT_NODE){
                 }else{
-                    startContainer = startContainer.childNodes[startOffset];
+                    // 这里有可能是startContainer的childNodes是空的 offset是0
+                    if(startContainer.childNodes[startOffset]){
+                        startContainer = startContainer.childNodes[startOffset];
+                    }else{
+                        if(startContainer.childNodes.length){
+                            startContainer = startContainer.childNodes.lastChild;
+                        }else{
+                            startContainer = startContainer;
+                        }
+                    }
+
 
                     startOffset = -1;
                 }
@@ -759,7 +794,10 @@
                 }
 
                 Tree.normalizeTree(range.commonAncestorContainer);
-                var nodes = Tree.getSelectedNodes(range.commonAncestorContainer, startContainer, startOffset, endContainer, endOffset);
+
+             
+
+                var nodes = Tree.getSelectedNodes(range.commonAncestorContainer, startContainer, startOffset, endContainer, endOffset, range);
 
                 return nodes;
             }
@@ -1135,12 +1173,28 @@
                 _this.event.trigger('selectionchange');
             };
 
+            var emptyCount = 0;
             this.document.addEventListener("keydown", function(e){
                 var keyCode = e.keyCode;
 
                 if(keyCode === 65 && e.ctrlKey){
                     _this.document.addEventListener("keyup", selectAllKeyDownHandler);
                     document.addEventListener("keyup", selectAllKeyDownHandler);
+                }
+
+                var content = _this.body.innerHTML;
+
+                if(content.length){
+                    emptyCount = 0;
+                }else{
+                    emptyCount ++;
+                }
+
+                // backspace
+                if(keyCode === 8){
+                    if(emptyCount > 1){
+                        this.body.setAttribute('style', '');
+                    }
                 }
             });
 
@@ -1159,7 +1213,7 @@
                 var html = clipData.getData('text/html');
 
                 if(html){
-                    _this.insertHtml(_this._filterHtml(html));
+                    _this.insertHtml(_this.convertContent(html));
 
                     e.preventDefault();
                 }
@@ -1182,6 +1236,7 @@
         setContent: function(html){
             this.body.innerHTML = html;
 
+            /*
             if(this.body.childNodes[0]){
                 if(this.body.childNodes[0].getAttribute('data-name') === 'body'){
                     var style = this.body.childNodes[0].getAttribute("style");
@@ -1193,6 +1248,7 @@
                     this.body.innerHTML += "<p><br /></p>";
                 }
             }
+            */
         },
 
         getSelection: function(){
@@ -1270,6 +1326,87 @@
             }
         },
 
+        // 转换为editro可用的内容
+        // 去掉无用的内容
+        // 优化内容
+        // 只识别的属性 style
+        // background: color
+        convertContent: function(html){
+            if(! html){
+                return '';
+            }
+
+            var div = document.createElement('div');
+            
+            div.innerHTML = html;
+
+            var removeChildNodes = [];
+            var scan = function(node){
+                for(var i = 0; i < node.childNodes.length; i ++){
+                    var child = node.childNodes[i];
+
+                    if(child.nodeType === child.COMMENT_NODE){
+                        removeChildNodes.push(child);
+
+                        continue;
+                    }
+
+                    // 删除所有属性
+                    if(child.attributes && child.attributes.length){
+                        var removedAttr = [];
+                        for(var j = 0; j < child.attributes.length; j ++){
+                            var attr = child.attributes[j].name;
+
+                            if(recieveAttr.indexOf(attr) > -1){
+                            }else{
+                                removedAttr.push(attr);
+                            }
+                        }
+
+                        for(var j = 0; j < removedAttr.length; j ++){
+                            child.attributes.removeNamedItem(removedAttr[j]);
+                        }
+                    }
+
+                     if(child.style && child.style.length){
+                         var removedStyle = [];
+                         for(var j = 0; j < child.style.length; j ++){
+                            var styleName = child.style[j];
+
+                            if(recieveStyle.indexOf(styleName) > -1){
+                            }else{
+                                removedStyle.push(styleName);
+                            }
+                        }
+
+                        for(var j = 0; j < removedStyle.length; j ++){
+                            child.style[removedStyle[j]] = "";
+                        }
+                    }
+
+                    if(child.nodeType === child.ELEMENT_NODE){
+                        if(! child.childNodes.length){
+                            removeChildNodes.push(child);
+
+                            continue;
+                        }
+                    }
+                    scan(child);
+                }
+            };
+
+            scan(div);
+
+            var r;
+            while(r = removeChildNodes.shift()){
+                r.parentNode.removeChild(r);
+            }
+
+            // removeChild
+
+            return div.innerHTML;
+        },
+
         _filterHtml: function(html){
             var _this = this;
           if(html){
@@ -1313,16 +1450,11 @@
             }
         },
 
-        optmizeContent: function(html){
-            // remove空的span节点
-           var scan = function(node){
-           };
-        },
-
         getContent: function(){
             var html = this.body.innerHTML;
 
             var content;
+            /*
             if(this.body.style.length){
                 var style = this.body.getAttribute('style');
 
@@ -1330,8 +1462,9 @@
             }else{
                 content = '<div data-name="body">' + html + '</div>';
             }
+            */
 
-            // 这里优化content
+            content = "<p>" + this.body.innerHTML + "</p>";
 
             return content;
         },

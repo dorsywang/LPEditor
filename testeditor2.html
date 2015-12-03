@@ -1,0 +1,85 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+  <style type="text/css">
+ .btn{
+   padding: 3px;
+   border: 1px solid #ccc;
+ }
+  </style>
+
+  <link media="all" rel="stylesheet" href="editor.css" type="text/css" />
+  <link media="all" rel="stylesheet" href="css/jquery-ui.css" type="text/css" />
+  <link media="all" rel="stylesheet" href="css/evol.colorpicker.css" type="text/css" />
+</head>
+<body>
+<div id="editor">
+  <div class="toolbar">
+    <div class="command" data-command="bold">B</div>
+    <div class="command" data-command="italic">I</div>
+    <div class="command" data-command="underline">U</div>
+    <div class="colorpicker" >A</div>
+    字体大小：<input type="number" max="60" min="12" id="fontSize" value="12" />
+    行距大小：<input type="number" max="60" min="12" id="lineHeight" value="12" />
+
+    <div class="command" data-command="justify" data-value="left">Left</div>
+    <div class="command" data-command="justify" data-value="center">Center</div>
+    <div class="command" data-command="justify" data-value="right">Right</div>
+  </div>
+
+  <div id="content">
+  </div>
+</div>
+
+<!--
+<script type="text/javascript" src="../niumobile/js/lib/litepage_editor.js"></script>
+-->
+<script type="text/javascript" src="src/jquery.js"></script>
+<script type="text/javascript" src="src/jquery.ui.widget.js"></script>
+<script type="text/javascript" src="colorpicker/evol.colorpicker.js"></script>
+<script type="text/javascript" src="src/litepage_editor.js"></script>
+<script type="text/javascript">
+var myeditor = new LE.Editor({
+    cssLink: "js/ueditor/themes/iframe.css",
+    filterStyle: ['background-color']
+  });
+
+myeditor.render("#content");
+myeditor.addListener("contentChange", function(){
+   // console.log(myeditor.getContent());
+});
+
+myeditor.setContent('sadfasdfasdfasdf');
+
+window.myeditor = myeditor;
+
+$(".command").on("click", function(e){
+    var command = $(this).data('command');
+    var value = $(this).data('value');
+
+    myeditor.execCommand(command, value);
+});
+
+$(".colorpicker").colorpicker();
+
+$(".colorpicker").on("change.color", function(event, color){
+    myeditor.execCommand('forecolor', color);
+});
+
+
+$("#fontSize").on('change', function(e){
+    var val = $(this).val();
+
+    myeditor.execCommand('fontsize', val + 'px');
+  });
+
+$("#lineHeight").on('change', function(e){
+    var val = $(this).val();
+
+    myeditor.execCommand('lineheight', val + 'px');
+  });
+</script>
+</body>
+</html>

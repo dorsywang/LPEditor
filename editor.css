@@ -1,0 +1,19 @@
+div#content {
+    border: 1px solid #ccc;
+    height: 610px;
+}
+
+.toolbar {
+    padding: 9px;
+}
+
+
+
+.command {
+    display: inline-block;
+    cursor: pointer;
+}
+
+.toolbar>div {
+    display: inline-block;
+}
